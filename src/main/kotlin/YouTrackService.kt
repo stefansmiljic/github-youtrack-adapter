@@ -9,7 +9,6 @@ import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.descriptors.StructureKind
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 
@@ -41,10 +40,10 @@ class YouTrackService(private val token: String, private val baseUrl: String) {
         val customFields: List<IssueCustomField>? = null
     )
 
-    suspend fun getProjects() {
-        val response: String = client.get("$baseUrl/api/admin/projects?fields=id,name") {
+    suspend fun getProjects(): List<Project> {
+        return client.get("$baseUrl/api/admin/projects?fields=id,name") {
             header("Authorization", "Bearer $token")
-        }.bodyAsText()
+        }.body()
     }
 
     suspend fun getIssue(): HttpResponse {
@@ -54,7 +53,6 @@ class YouTrackService(private val token: String, private val baseUrl: String) {
     }
 
     suspend fun createIssue(issue: YouTrackIssue): HttpResponse {
-        println("OVDE STAMPAMO ISSUE")
         println(issue)
         return client.post("$baseUrl/api/issues?fields=id,summary,description,state,type") {
             header("Accept", "application/json")

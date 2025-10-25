@@ -1,17 +1,6 @@
 package org.github_youtrack_adapter
-import io.ktor.client.*
-import io.ktor.client.request.*
-import io.ktor.client.statement.*
-import kotlinx.coroutines.runBlocking
 
-suspend fun getProjects(){
-    val token = System.getenv("YOUTRACK_TOKEN")
-    val baseUrl = System.getenv("YOUTRACK_URL")
-    val client = HttpClient()
-    val response: String = client.get("$baseUrl/api/admin/projects?fields=id,name"){
-        header("Authorization", "Bearer $token") }.bodyAsText()
-    println("Projects: $response")
-}
+import kotlinx.coroutines.runBlocking
 
 fun main() {
     runBlocking {
@@ -27,14 +16,17 @@ fun main() {
         val github = GithubService(githubToken)
         val youtrack = YouTrackService(youtrackToken, youtrackUrl)
 
+        println("Fetching projects from YouTrack...")
+        val projects = youtrack.getProjects()
+        projects.forEach { println("- ${it.id}") }
+
+        print("\nEnter the project id to import issues into: ")
+        val projId = readlnOrNull()?.trim().takeUnless { it.isNullOrEmpty() }
+            ?: error("Empty project id")
+
         val issues = github.getIssues(repo)
-        println("Importing ${issues.size} Github issues into YouTrack...")
+        println("\nFound ${issues.size} GitHub issues. Importing to YouTrack...\n")
 
-        getProjects()
-
-        println("Please enter the id of your project")
-
-        val projId = readlnOrNull() ?: throw Exception("Empty project id")
         for(issue in issues) {
             val youtrackIssue = IssueMapper.mapGithubIssueToYouTrack(issue, projId)
             val response = youtrack.createIssue(youtrackIssue)
