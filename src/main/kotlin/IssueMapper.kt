@@ -21,11 +21,14 @@ object IssueMapper {
             else -> "Open"
         }
 
+        val fields = mutableListOf<YouTrackService.IssueCustomField>()
+
         val stateField = YouTrackService.IssueCustomField(
             name = "State",
             type = "StateIssueCustomField",
             value = JsonObject(mapOf("name" to JsonPrimitive(mappedStateName)))
         )
+        fields.add(stateField)
 
         val typeName = issue.labels
             .map { it.name.lowercase() }
@@ -37,12 +40,13 @@ object IssueMapper {
             type = "SingleEnumIssueCustomField",
             value = JsonObject(mapOf("name" to JsonPrimitive(typeName)))
         )
+        fields.add(typeField)
 
         return YouTrackService.YouTrackIssue(
             project = YouTrackService.Project(id = projectId),
-            summary = issue.title,
+            summary = issue.title + "(GitHub Issue: #${issue.id})",
             description = issue.body,
-            customFields = listOf(stateField, typeField)
+            customFields = fields
         )
     }
 }

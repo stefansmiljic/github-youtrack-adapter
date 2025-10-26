@@ -1,5 +1,6 @@
 package org.github_youtrack_adapter
 
+import io.ktor.client.call.*
 import kotlinx.coroutines.runBlocking
 
 fun main() {
@@ -24,14 +25,33 @@ fun main() {
         val projId = readlnOrNull()?.trim().takeUnless { it.isNullOrEmpty() }
             ?: error("Empty project id")
 
-        val issues = github.getIssues(repo)
-        println("\nFound ${issues.size} GitHub issues. Importing to YouTrack...\n")
+        val githubIssues = github.getIssues(repo)
+        val youtrackIssues = youtrack.getAllIssues()
 
-        for(issue in issues) {
-            val youtrackIssue = IssueMapper.mapGithubIssueToYouTrack(issue, projId)
-            val response = youtrack.createIssue(youtrackIssue)
-            println("Created YouTrack issue: ${response.status}")
+        val issueMap = IssueMapStore.mapIssues(youtrackIssues)
+
+
+        println("\nFound ${githubIssues.size} GitHub issues. Importing to YouTrack...\n")
+
+        for (ghIssue in githubIssues) {
+            val existingYouTrackId = issueMap.map[ghIssue.id.toString()]
+            val mapped = IssueMapper.mapGithubIssueToYouTrack(ghIssue, projId)
+
+            if (existingYouTrackId == null) {
+                val response = youtrack.createIssue(mapped)
+                if (response.status.value in 200..299) {
+                    val body = response.body<YouTrackService.CreatedIssueResponse>()
+                    issueMap.map[ghIssue.id.toString()] = body.id
+                    println("Created YouTrack issue ${body.id} for GitHub #${ghIssue.id}")
+                } else {
+                    println("Failed to create YouTrack issue for GitHub #${ghIssue.id}: ${response.status}")
+                }
+            } else {
+                val response = youtrack.updateIssue(existingYouTrackId, mapped)
+                println("Updated YouTrack issue $existingYouTrackId for GitHub #${ghIssue.id} (status: ${response.status})")
+            }
         }
+        println("\nSync complete.")
     }
 }
 

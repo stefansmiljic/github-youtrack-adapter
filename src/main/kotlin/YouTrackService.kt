@@ -23,22 +23,23 @@ class YouTrackService(private val token: String, private val baseUrl: String) {
     data class Project(val id: String)
 
     @Serializable
-    data class CustomFieldValue<T>(val name: String, val value: T)
-
-    @Serializable
     data class IssueCustomField(
         val name: String,
         @SerialName("\$type") val type: String,
         val value: JsonElement
     )
 
-    @Serializable data class
-    YouTrackIssue(
+    @Serializable
+    data class YouTrackIssue(
+        val id: String? = null,
         val project: Project,
         val summary: String,
         val description: String? = null,
         val customFields: List<IssueCustomField>? = null
     )
+
+    @Serializable
+    data class CreatedIssueResponse(val id: String)
 
     suspend fun getProjects(): List<Project> {
         return client.get("$baseUrl/api/admin/projects?fields=id,name") {
@@ -46,19 +47,34 @@ class YouTrackService(private val token: String, private val baseUrl: String) {
         }.body()
     }
 
-    suspend fun getIssue(): HttpResponse {
-        return client.get("$baseUrl/api/issues"){
+    suspend fun getAllIssues(): List<YouTrackIssue> {
+        val response = client.get("$baseUrl/api/issues?fields=project(id,name),id,summary,description,state,type") {
             header("Authorization", "Bearer $token")
-        }.body()
+        }
+
+        return response.body()
     }
 
     suspend fun createIssue(issue: YouTrackIssue): HttpResponse {
-        println(issue)
-        return client.post("$baseUrl/api/issues?fields=id,summary,description,state,type") {
+        val response = client.post("$baseUrl/api/issues?fields=id,summary,description,state,type") {
             header("Accept", "application/json")
             header("Authorization", "Bearer $token")
             contentType(ContentType.Application.Json)
             setBody(issue)
+        }
+
+        println("Status: ${response.status}")
+        println("Response body: ${response.bodyAsText()}")
+
+        return response
+    }
+
+    suspend fun updateIssue(issueId: String, updatedIssue: YouTrackIssue): HttpResponse {
+        return client.post("$baseUrl/api/issues/$issueId?fields=id,summary,description,state,type") {
+            header("Accept", "application/json")
+            header("Authorization", "Bearer $token")
+            contentType(ContentType.Application.Json)
+            setBody(updatedIssue)
         }
     }
 }
